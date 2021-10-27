@@ -71,19 +71,6 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
 # VRC stuff
-Assets/[Uu]don/
-Assets/Udon.meta
-Assets/VRCSDK*
-Assets/VRChat Examples*
-
-[Aa]ssets/SerializedUdonPrograms*
-Assets/Bakery*
-Assets/CyanEmu*
-Assets/EasyQuestSwitch*
-Assets/Editor*
-Assets/Gizmos*
-Assets/MeshCombineStudio*
-Assets/UdonSharp*
-Assets/Varneon*
-Assets/VRWorldToolkit*
-Packages/
+/[Aa]ssets/*
+!/[Aa]ssets/mahu
+*.spp

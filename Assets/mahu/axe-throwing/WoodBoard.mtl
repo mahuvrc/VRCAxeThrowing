@@ -1,0 +1,7 @@
+newmtl Board
+map_Kd D:/dev/vrchat/worlds/Axe Throwing/Assets/Models/Flooded_Grounds/Content/Textures/BLD_Structures1_A.tif
+map_Pm D:/dev/vrchat/worlds/Axe Throwing/Assets/Models/Flooded_Grounds/Content/Textures/BLD_Structures1_MS.tif
+bump D:/dev/vrchat/worlds/Axe Throwing/Assets/Models/Flooded_Grounds/Content/Textures/BLD_Structures1_N.tif
+Kd 1 1 1
+d 1
+
