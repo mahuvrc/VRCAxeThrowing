@@ -2,14 +2,14 @@
 using System;
 using UdonSharp;
 using UnityEngine;
+using UnityEngine.Animations;
 using VRC.SDK3.Components;
 using VRC.SDKBase;
 using VRC.Udon;
+using VRC.Udon.Common.Interfaces;
 
 public class ThrowingAxe : UdonSharpBehaviour
 {
-    const int MOTIONSMOOTHFRAMES = 5;
-
     const int STATE_WAITING = 0;
     const int STATE_TAKEN = 1;
     const int STATE_USED = 2;
@@ -19,7 +19,8 @@ public class ThrowingAxe : UdonSharpBehaviour
     public Collider scoreCollider;
     public AudioSource audio;
     public AudioClip woodChop;
-    public AudioClip wompWomp;
+    public AudioClip errorSound;
+    public AudioClip clangSound;
 
     public bool useSmoothVelocity;
     public bool useAssist;
@@ -30,6 +31,7 @@ public class ThrowingAxe : UdonSharpBehaviour
     private VRCPickup pickup;
     private VRCObjectSync objectsync;
     private Rigidbody rb;
+    private ParentConstraint parentConstraint;
 
     private bool pickupStay;
     private bool foul;
@@ -37,18 +39,30 @@ public class ThrowingAxe : UdonSharpBehaviour
     private int heldFrames;
     private Vector3 lastPosition;
     private Quaternion lastRotation;
-    private float[] frameTimes = new float[MOTIONSMOOTHFRAMES];
-    private Vector3[] heldVelocities = new Vector3[MOTIONSMOOTHFRAMES];
-    private Vector3[] heldAngularVelocities = new Vector3[MOTIONSMOOTHFRAMES];
+
+    private float[] frameTimes = new float[5];
+    private Vector3[] heldVelocities = new Vector3[5];
+    private Vector3[] heldAngularVelocities = new Vector3[5];
 
 
     private Vector3 smoothVelocity, smoothAngularVelocity;
+
+    private Vector3 initialPosition;
+    private Quaternion initialRotation;
+
+    private bool ownerLocked;
 
     public void Start()
     {
         pickup = (VRCPickup)GetComponent(typeof(VRCPickup));
         objectsync = (VRCObjectSync)GetComponent(typeof(VRCObjectSync));
         rb = GetComponent<Rigidbody>();
+        parentConstraint = GetComponent<ParentConstraint>();
+
+        initialPosition = transform.position;
+        initialRotation = transform.rotation;
+
+        pickup.proximity = Networking.LocalPlayer.IsUserInVR() ? 0.05f : 0.5f;
     }
 
     public void _OnStickTrigger(Collider collider)
@@ -79,16 +93,17 @@ public class ThrowingAxe : UdonSharpBehaviour
         {
             // axe is stuck
             objectsync.SetKinematic(true);
+            //rb.isKinematic = true;
             pickup.Drop();
 
             if (!foul)
             {
-                SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, "ChopSound");
+                SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, nameof(ChopSound));
                 Game.ScoreAxe(scoreCollider);
             }
             else
             {
-                SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, "ErrorSound");
+                SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, nameof(ErrorSound));
             }
         }
     }
@@ -100,10 +115,11 @@ public class ThrowingAxe : UdonSharpBehaviour
 
     public void ErrorSound()
     {
-        audio.PlayOneShot(wompWomp);
+        audio.PlayOneShot(errorSound, 0.75f);
     }
 
-    // hack for exit trigger
+    // hack for exit trigger since the pickup experiences many trigger enter
+    // and exit events when the axe is picked up for some reason.
     private bool inPlayableZone;
     public void OnTriggerEnter(Collider other)
     {
@@ -149,37 +165,88 @@ public class ThrowingAxe : UdonSharpBehaviour
         }
     }
 
+    private float clangTime = 0;
+
+    public void OnCollisionEnter(Collision collision)
+    {
+        //Debug.Log($"!! Collision '{collision.contacts[0].thisCollider.material.name}' on '{collision.contacts[0].otherCollider.material.name}')");
+
+        if (Time.time > clangTime
+            && collision.contacts[0].thisCollider.material.name.StartsWith("axemetal")
+            && collision.contacts[0].otherCollider.material.name.StartsWith("axemetal"))
+        {
+            if (Networking.GetUniqueName(gameObject).CompareTo(
+                Networking.GetUniqueName(collision.rigidbody.gameObject)) < 0)
+            {
+                clangTime = Time.time + UnityEngine.Random.Range(0.2f, 0.7f);
+                //Debug.Log($"play clang {Networking.GetUniqueName(gameObject)} on {Networking.GetUniqueName(collision.rigidbody.gameObject)}");
+                SendCustomNetworkEvent(NetworkEventTarget.All, nameof(_Clang));
+            }
+        }
+    }
+
+    public void _Clang()
+    {
+        audio.PlayOneShot(clangSound, UnityEngine.Random.Range(0.25f, 0.65f));
+    }
+
     public void SetState(int state)
     {
         Networking.SetOwner(Networking.LocalPlayer, gameObject);
         Game.SetAxeState(state);
     }
 
+    private int currentState = -1;
     public void TransitionState(int state)
     {
+        if (currentState == state)
+        {
+            return;
+        }
+        currentState = state;
+
         Debug.Log("Axe transitioning to state " + state);
         switch (state)
         {
             case STATE_WAITING:
                 if (Networking.IsOwner(gameObject))
                 {
+                    objectsync.FlagDiscontinuity();
                     objectsync.SetKinematic(true);
+                    pickup.proximity = Networking.LocalPlayer.IsUserInVR() ? 0.05f : 0.5f;
                 }
-                pickup.pickupable = true;
+                parentConstraint.constraintActive = true;
                 break;
             case STATE_TAKEN:
                 if (Networking.IsOwner(gameObject))
                 {
                     objectsync.SetKinematic(false);
                 }
-                pickup.pickupable = Networking.IsOwner(gameObject);
+                pickup.proximity = 2f;
+
+                parentConstraint.constraintActive = false;
                 break;
             case STATE_USED:
-                pickup.pickupable = false;
+                parentConstraint.constraintActive = false;
                 break;
             default:
                 break;
         }
+
+        SetPickupable(state);
+    }
+
+    private void SetPickupable(int state)
+    {
+        pickup.pickupable = !ownerLocked
+            && (state == STATE_WAITING
+                || (state == STATE_TAKEN && Networking.IsOwner(gameObject)));
+    }
+
+    public void SetOwnerLocked(bool locked)
+    {
+        ownerLocked = locked;
+        SetPickupable(Game.AxeState);
     }
 
     public override void OnPickup()
@@ -198,12 +265,21 @@ public class ThrowingAxe : UdonSharpBehaviour
         lastRotation = transform.rotation;
         triggerHeldPeak = 0;
         pickupStay = true;
+
+        var optimalSmoothingFrames = Mathf.RoundToInt(Mathf.Clamp(0.15f / Time.smoothDeltaTime, 5, 50));
+        frameTimes = new float[optimalSmoothingFrames];
+        heldVelocities = new Vector3[optimalSmoothingFrames];
+        heldAngularVelocities = new Vector3[optimalSmoothingFrames];
     }
+
+
 
     public void Update()
     {
         if (pickupStay)
         {
+            var frametotal = frameTimes.Length;
+
             // When you hold and release using the trigger, we can throw the axe with better precision
             // than the vrchat grip inputs
             float triggerHeldStrength;
@@ -224,21 +300,22 @@ public class ThrowingAxe : UdonSharpBehaviour
                 pickup.Drop();
             }
 
+            var centerOfmass = rb.worldCenterOfMass;
             if (heldFrames > 0)
             {
-                heldVelocities[heldFrames % MOTIONSMOOTHFRAMES] = (transform.position - lastPosition) / Time.deltaTime;
+                heldVelocities[heldFrames % frametotal] = (centerOfmass - lastPosition) / Time.deltaTime;
 
                 float angleDegrees;
                 Vector3 rotationAxis;
 
                 (transform.rotation * Quaternion.Inverse(lastRotation)).ToAngleAxis(out angleDegrees, out rotationAxis);
 
-                heldAngularVelocities[heldFrames % MOTIONSMOOTHFRAMES] = (rotationAxis * angleDegrees * Mathf.Deg2Rad) / Time.deltaTime;
+                heldAngularVelocities[heldFrames % frametotal] = (rotationAxis * angleDegrees * Mathf.Deg2Rad) / Time.deltaTime;
             }
 
-            frameTimes[heldFrames % MOTIONSMOOTHFRAMES] = Time.deltaTime;
+            frameTimes[heldFrames % frametotal] = Time.deltaTime;
 
-            lastPosition = transform.position;
+            lastPosition = centerOfmass;
             lastRotation = transform.rotation;
 
             if (pickup.IsHeld)
@@ -248,7 +325,11 @@ public class ThrowingAxe : UdonSharpBehaviour
             else
             {
                 pickupStay = false;
-                Throw();
+
+                if (Game.AxeState == STATE_TAKEN)
+                {
+                    Throw();
+                }
             }
         }
     }
@@ -260,69 +341,76 @@ public class ThrowingAxe : UdonSharpBehaviour
             Debug.Log("Player was in the no go zone. Call foul.");
             foul = true;
         }
+
+        var sqrDistanceFromHoldZone = (Game.AxeHoldZone.ClosestPoint(transform.position) - transform.position).sqrMagnitude;
+        if (sqrDistanceFromHoldZone > 1e-10)
+        {
+            Debug.Log("Player released axe outside playable area. Call foul.");
+            foul = true;
+        }
     }
 
     // Custom Throw function so that it takes place at the right time when the pickup is dropped
     // and after computing the velocities for the frame
     private void Throw()
     {
-        Debug.Log("Player throwing axe.");
+        // an axe thrown from 3 meters at this speed will hit the target in 0.37 seconds, turning 1 rotation
+        const float OPTIMAL_VELOCITY = 7.5f;
+        const float OPTIMAL_ANGVELOCITY = 17.6f;
 
-        if (heldFrames < MOTIONSMOOTHFRAMES || !inPlayableZone)
+        Debug.Log("Player throwing axe.");
+        if (heldFrames < frameTimes.Length || !inPlayableZone)
         {
             // do nothing
         }
         else
         {
-            if (useSmoothVelocity)
+            if (Networking.LocalPlayer.IsUserInVR())
             {
-                Debug.Log($"RB velocity before smoothing: {rb.velocity} {rb.angularVelocity}");
+                if (useSmoothVelocity)
+                {
+                    Debug.Log($"RB velocity before smoothing: {rb.velocity} {rb.angularVelocity}");
 
-                ComputeVelocityRegression();
+                    ComputeVelocityRegression();
 
-                rb.velocity = smoothVelocity * velMult;
-                rb.angularVelocity = smoothAngularVelocity * angVelMult;
-            }
+                    rb.velocity = smoothVelocity * velMult;
+                    rb.angularVelocity = smoothAngularVelocity * angVelMult;
+                }
 
-            if (useAssist)
-            {
-                // an axe thrown from 3 meters at this speed will hit the target in 0.37 seconds, turning 1 rotation
-                const float OPTIMAL_VELOCITY = 7.5f;
-                const float OPTIMAL_ANGVELOCITY = 17.6f;
-
-                if (Networking.LocalPlayer.IsUserInVR())
+                if (useAssist)
                 {
                     // Increasing difficulty value makes the assist weaker and the throwing more dependant on skill
-                    const float DIFFICULTY = 1.75f;
-                    const float ANG_DIFFICULTY = 0.75f;
+                    const float DIFFICULTY = 2f;
+                    const float ANG_DIFFICULTY = 2f;
 
                     Debug.Log($"RB velocity before assist: {rb.velocity} ({rb.velocity.magnitude}) {rb.angularVelocity} ({rb.angularVelocity.magnitude})");
-                    rb.velocity = computeAssist(rb.velocity, OPTIMAL_VELOCITY, DIFFICULTY);
-                    rb.angularVelocity = computeAssist(rb.angularVelocity, OPTIMAL_ANGVELOCITY, ANG_DIFFICULTY);
+                    rb.velocity = computeAssist(rb.velocity, OPTIMAL_VELOCITY, DIFFICULTY, 1);
+                    // Compute a target velocity based on the adjusted velocity. The effect is that ths will try to match the spin closer to 1 rotation
+                    rb.angularVelocity = computeAssist(rb.angularVelocity, OPTIMAL_ANGVELOCITY / OPTIMAL_VELOCITY * rb.velocity.magnitude, ANG_DIFFICULTY, 2f);
                     Debug.Log($"RB velocity after assist: {rb.velocity} ({rb.velocity.magnitude}) {rb.angularVelocity} ({rb.angularVelocity.magnitude})");
                 }
-                else
-                {
-                    // Give desktop users a stupid random aimbot, lol
-                    var playerLook = Networking.LocalPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
-                    
-                    var randomThrow = playerLook.rotation * Vector3.forward * UnityEngine.Random.Range(OPTIMAL_VELOCITY * 0.9f, OPTIMAL_VELOCITY * 1.1f);
-                    var randomSpin = playerLook.rotation * Vector3.right * UnityEngine.Random.Range(OPTIMAL_ANGVELOCITY * 0.9f, OPTIMAL_ANGVELOCITY * 1.1f);
+            }
+            else
+            {
+                // Give desktop users a stupid random aimbot, lol
+                var playerLook = Networking.LocalPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
 
-                    rb.velocity = computeAssist(randomThrow, OPTIMAL_VELOCITY, 2);
-                    rb.angularVelocity = computeAssist(randomSpin, OPTIMAL_ANGVELOCITY, 1.5f);
-                }
+                var randomThrow = playerLook.rotation * Vector3.forward * UnityEngine.Random.Range(OPTIMAL_VELOCITY * 0.9f, OPTIMAL_VELOCITY * 1.1f);
+                var randomSpin = playerLook.rotation * Vector3.right * UnityEngine.Random.Range(OPTIMAL_ANGVELOCITY * 0.9f, OPTIMAL_ANGVELOCITY * 1.1f);
+
+                rb.velocity = computeAssist(randomThrow, OPTIMAL_VELOCITY, 2, 1);
+                rb.angularVelocity = computeAssist(randomSpin, OPTIMAL_ANGVELOCITY, 1.5f, 1);
             }
         }
     }
 
-    private Vector3 computeAssist(Vector3 vec, float optimal, float difficulty)
+    private Vector3 computeAssist(Vector3 vec, float optimal, float difficulty, float mult)
     {
         // exaggerate this distance highly and lerp towards the optimal velocity, more closer = more power
         var relativeDiffToOptimal = Mathf.Abs(optimal - vec.magnitude) / optimal;
 
         // higher values = more assist. at relative diff = 0 this returns 0;
-        var assistPower = Mathf.Pow(1 - Mathf.Clamp(relativeDiffToOptimal, 0, 1), difficulty);
+        var assistPower = Mathf.Pow(1 - Mathf.Clamp(relativeDiffToOptimal / mult, 0, 1), difficulty);
         Debug.Log($"Assist amount: off by {relativeDiffToOptimal} => {assistPower} assistPower");
         return Vector3.Lerp(vec, optimal * vec.normalized, assistPower);
     }
@@ -340,19 +428,20 @@ public class ThrowingAxe : UdonSharpBehaviour
         Debug.Log("Resetting Thrown Axe");
         SetState(STATE_WAITING);
         pickup.Drop();
-        objectsync.Respawn();
     }
 
     private void ComputeVelocityRegression()
     {
-        var velocities = new Vector3[MOTIONSMOOTHFRAMES];
-        var angularVelocities = new Vector3[MOTIONSMOOTHFRAMES];
-        var times = new float[MOTIONSMOOTHFRAMES];
+        var framecount = frameTimes.Length;
 
-        for (int i = 0; i < MOTIONSMOOTHFRAMES; i++)
+        var velocities = new Vector3[framecount];
+        var angularVelocities = new Vector3[framecount];
+        var times = new float[framecount];
+
+        for (int i = 0; i < framecount; i++)
         {
             // array wraps around so we can just add
-            var curFrameIdx = (heldFrames + 1 + i) % MOTIONSMOOTHFRAMES;
+            var curFrameIdx = (heldFrames + 1 + i) % framecount;
             velocities[i] = heldVelocities[curFrameIdx];
             angularVelocities[i] = heldAngularVelocities[curFrameIdx];
             times[i] = frameTimes[curFrameIdx] + (i == 0 ? 0.0f : times[i - 1]);
@@ -370,9 +459,10 @@ public class ThrowingAxe : UdonSharpBehaviour
 
     private Vector3 ComputeRegression(Vector3[] y, float[] x)
     {
-        // this is called linear regression or something
-        // it's better than averaging the velocity frame to frame especially at low frame rates
-        // and will smooth out noise caused by fluctuations frame to frame
+        // this is linear regression via the least squares method. it's loads better
+        // than averaging the velocity frame to frame especially at low frame rates
+        // and will smooth out noise caused by fluctuations frame to frame and the
+        // tendency for players to sharply flick their wrist when throwing
 
         float sumx = 0;                      /* sum of x     */
         float sumx2 = 0;                     /* sum of x**2  */
