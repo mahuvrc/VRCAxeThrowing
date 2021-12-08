@@ -144,7 +144,7 @@ public class AxeSpawner : UdonSharpBehaviour
             RequestSerialization();
         }
 
-        SendCustomEventDelayedSeconds(nameof(_UpdatePosition), 0.1f);
+        SendCustomEventDelayedSeconds(nameof(_UpdatePosition), 0.2f);
     }
 
     public void _Interpolate()

@@ -14,7 +14,10 @@ public class ThrowingAxe : UdonSharpBehaviour
     const int STATE_TAKEN = 1;
     const int STATE_USED = 2;
 
+    // Set by parent
+    [NonSerialized]
     public AxeThrowingGame Game;
+
     public Transform edgePosition;
     public Collider scoreCollider;
     public AudioSource audio;
@@ -98,12 +101,12 @@ public class ThrowingAxe : UdonSharpBehaviour
 
             if (!foul)
             {
-                SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, nameof(ChopSound));
-                Game.ScoreAxe(scoreCollider);
+                SendCustomNetworkEvent(NetworkEventTarget.All, nameof(ChopSound));
+                Game.ScoreAxe();
             }
             else
             {
-                SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, nameof(ErrorSound));
+                SendCustomNetworkEvent(NetworkEventTarget.All, nameof(ErrorSound));
             }
         }
     }
@@ -154,7 +157,6 @@ public class ThrowingAxe : UdonSharpBehaviour
             {
                 Debug.Log($"Axe will be consumed and respawned.");
                 SetState(STATE_USED);
-                SendCustomEventDelayedSeconds(nameof(_ResetDelay), 2f);
                 Game._ConsumeAxe();
 
                 if (pickup.IsHeld)
@@ -180,12 +182,12 @@ public class ThrowingAxe : UdonSharpBehaviour
             {
                 clangTime = Time.time + UnityEngine.Random.Range(0.2f, 0.7f);
                 //Debug.Log($"play clang {Networking.GetUniqueName(gameObject)} on {Networking.GetUniqueName(collision.rigidbody.gameObject)}");
-                SendCustomNetworkEvent(NetworkEventTarget.All, nameof(_Clang));
+                SendCustomNetworkEvent(NetworkEventTarget.All, nameof(Clang));
             }
         }
     }
 
-    public void _Clang()
+    public void Clang()
     {
         audio.PlayOneShot(clangSound, UnityEngine.Random.Range(0.25f, 0.65f));
     }
@@ -266,18 +268,29 @@ public class ThrowingAxe : UdonSharpBehaviour
         triggerHeldPeak = 0;
         pickupStay = true;
 
+#if UNITY_ANDROID
+        var optimalSmoothingFrames = Mathf.RoundToInt(Mathf.Clamp(0.28f / Time.smoothDeltaTime, 5, 50));
+#else
         var optimalSmoothingFrames = Mathf.RoundToInt(Mathf.Clamp(0.15f / Time.smoothDeltaTime, 5, 50));
+#endif
+
         frameTimes = new float[optimalSmoothingFrames];
         heldVelocities = new Vector3[optimalSmoothingFrames];
         heldAngularVelocities = new Vector3[optimalSmoothingFrames];
     }
 
 
+    VRC_Pickup.PickupHand currentHand;
 
     public void Update()
     {
         if (pickupStay)
         {
+            if (pickup.IsHeld)
+            {
+                currentHand = pickup.currentHand;
+            }
+
             var frametotal = frameTimes.Length;
 
             // When you hold and release using the trigger, we can throw the axe with better precision
@@ -300,10 +313,11 @@ public class ThrowingAxe : UdonSharpBehaviour
                 pickup.Drop();
             }
 
-            var centerOfmass = rb.worldCenterOfMass;
+            var throwPosition = rb.worldCenterOfMass;
+
             if (heldFrames > 0)
             {
-                heldVelocities[heldFrames % frametotal] = (centerOfmass - lastPosition) / Time.deltaTime;
+                heldVelocities[heldFrames % frametotal] = (throwPosition - lastPosition) / Time.deltaTime;
 
                 float angleDegrees;
                 Vector3 rotationAxis;
@@ -315,7 +329,7 @@ public class ThrowingAxe : UdonSharpBehaviour
 
             frameTimes[heldFrames % frametotal] = Time.deltaTime;
 
-            lastPosition = centerOfmass;
+            lastPosition = throwPosition;
             lastRotation = transform.rotation;
 
             if (pickup.IsHeld)
@@ -356,7 +370,7 @@ public class ThrowingAxe : UdonSharpBehaviour
     {
         // an axe thrown from 3 meters at this speed will hit the target in 0.37 seconds, turning 1 rotation
         const float OPTIMAL_VELOCITY = 7.5f;
-        const float OPTIMAL_ANGVELOCITY = 17.6f;
+        const float OPTIMAL_ANGVELOCITY = 16.6f;
 
         Debug.Log("Player throwing axe.");
         if (heldFrames < frameTimes.Length || !inPlayableZone)
@@ -379,14 +393,22 @@ public class ThrowingAxe : UdonSharpBehaviour
 
                 if (useAssist)
                 {
+#if UNITY_ANDROID
+                    // Increasing difficulty value makes the assist weaker and the throwing more dependant on skill
+                    const float DIFFICULTY = 1.5f;
+                    const float ANG_DIFFICULTY = 1.25f;
+                    const float ANG_MULT = 4f;
+#else
                     // Increasing difficulty value makes the assist weaker and the throwing more dependant on skill
                     const float DIFFICULTY = 2f;
                     const float ANG_DIFFICULTY = 2f;
+                    const float ANG_MULT = 2f;
+#endif
 
                     Debug.Log($"RB velocity before assist: {rb.velocity} ({rb.velocity.magnitude}) {rb.angularVelocity} ({rb.angularVelocity.magnitude})");
                     rb.velocity = computeAssist(rb.velocity, OPTIMAL_VELOCITY, DIFFICULTY, 1);
                     // Compute a target velocity based on the adjusted velocity. The effect is that ths will try to match the spin closer to 1 rotation
-                    rb.angularVelocity = computeAssist(rb.angularVelocity, OPTIMAL_ANGVELOCITY / OPTIMAL_VELOCITY * rb.velocity.magnitude, ANG_DIFFICULTY, 2f);
+                    rb.angularVelocity = computeAssist(rb.angularVelocity, OPTIMAL_ANGVELOCITY / OPTIMAL_VELOCITY * rb.velocity.magnitude, ANG_DIFFICULTY, ANG_MULT);
                     Debug.Log($"RB velocity after assist: {rb.velocity} ({rb.velocity.magnitude}) {rb.angularVelocity} ({rb.angularVelocity.magnitude})");
                 }
             }
@@ -413,14 +435,6 @@ public class ThrowingAxe : UdonSharpBehaviour
         var assistPower = Mathf.Pow(1 - Mathf.Clamp(relativeDiffToOptimal / mult, 0, 1), difficulty);
         Debug.Log($"Assist amount: off by {relativeDiffToOptimal} => {assistPower} assistPower");
         return Vector3.Lerp(vec, optimal * vec.normalized, assistPower);
-    }
-
-    public void _ResetDelay()
-    {
-        if (Game.AxeCount > 0)
-        {
-            _Reset();
-        }
     }
 
     public void _Reset()
