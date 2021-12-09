@@ -22,4 +22,4 @@ Even though the controllers are very different, the game plays similarly with bo
 
 Overall, the game is challenging at first. However, most players quickly develop skill in the first play session and continue to make progress as they play.
 
-Desktop gameplay is not a focus of this prefab. Desktop users get an automatic throw speed with some random elements and the gameplay is very simple.
+Desktop gameplay is not a focus of this game. Desktop players get an automatic throw speed with some random elements and the gameplay is very simple.
