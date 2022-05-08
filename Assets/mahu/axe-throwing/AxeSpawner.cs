@@ -13,7 +13,7 @@ public class AxeSpawner : UdonSharpBehaviour
     private Quaternion initialRotation;
     private VRC_Pickup pickup;
 
-    public AxeThrowingGame Game;
+    public AxeThrowingGame game;
     public TextMeshProUGUI LockUnlockBtnTxt;
     public GameObject Handle;
 
@@ -53,7 +53,7 @@ public class AxeSpawner : UdonSharpBehaviour
     {
         if (Networking.IsOwner(gameObject))
         {
-            if (other == Game.AxeHoldZone)
+            if (other == game.AxeHoldZone)
             {
                 Debug.Log("Game UI is entering playable area.");
                 inPlayableZone = true;
@@ -65,7 +65,7 @@ public class AxeSpawner : UdonSharpBehaviour
     {
         if (Networking.IsOwner(gameObject))
         {
-            if (other == Game.AxeHoldZone)
+            if (other == game.AxeHoldZone)
             {
                 Debug.Log("Game UI is exiting playable area.");
                 inPlayableZone = false;

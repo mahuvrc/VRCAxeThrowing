@@ -11,8 +11,9 @@ using VRC.Udon;
 public class AxeThrowingGame : UdonSharpBehaviour
 {
     private int MAX_AXE_COUNT = 10;
+    private const string TAG_ENABLE_DEBUG_SETTING = "mahu_AxeGame_EnableDebug";
 
-    public Collider AxeStickZone;
+    public BoxCollider AxeStickPlane;
 
     public Collider AxeHoldZone;
 
@@ -36,11 +37,19 @@ public class AxeThrowingGame : UdonSharpBehaviour
 
     public AxeSpawner AxeHolster;
 
+    public AnimatedGameText gameText;
+
+    public GameObject helpTextEnableBtn;
+
+    public GameObject helpTextDisableBtn;
+
+    public AxeThrowingDebugLog debugLog;
+
     public GameObject[] GameModeButtons;
 
-    public UdonSharpBehaviour[] GameModes;
+    public AxeThrowingGameMode[] GameModes;
 
-    public UdonSharpBehaviour ActiveGameMode;
+    public AxeThrowingGameMode ActiveGameMode;
 
     [UdonSynced]
     public int ActiveGameModeId;
@@ -54,20 +63,19 @@ public class AxeThrowingGame : UdonSharpBehaviour
     [UdonSynced]
     public bool InProgress;
 
+    private bool startingNextRound;
+
     void Start()
     {
-        Axe.Game = this;
-        AxeHolster.Game = this;
-
         for (var i = 0; i < GameModeButtons.Length; i++)
         {
             if (i < GameModes.Length)
             {
                 var gameMode = GameModes[i];
-                gameMode.SetProgramVariable("Game", this);
+                gameMode.game = this;
                 gameMode.gameObject.SetActive(true);
 
-                var name = (string)gameMode.GetProgramVariable("DisplayName");
+                var name = gameMode.DisplayName;
                 var btn = GameModeButtons[i];
                 btn.SetActive(true);
 
@@ -86,38 +94,23 @@ public class AxeThrowingGame : UdonSharpBehaviour
         SendCustomEventDelayedSeconds(nameof(_Initialize), 2.0f, VRC.Udon.Common.Enums.EventTiming.Update);
     }
 
-    private void SetDefaults()
-    {
-        lockDecayTime = Networking.GetNetworkDateTime().Ticks;
-        InProgress = false;
-    }
-
     public void ScoreAxe()
     {
-        ActiveGameMode.SendCustomEvent("_ScoreAxe");
-    }
-
-    // Utility method used by multiple game modes
-    public bool IsAxeInSphereScoreZone(SphereCollider sphereCollider)
-    {
-
-        var collisions = Physics.OverlapSphere(sphereCollider.transform.position + sphereCollider.center, sphereCollider.radius * sphereCollider.transform.lossyScale.x, ~0, QueryTriggerInteraction.Collide);
-        foreach (var collider in collisions)
-        {
-            if (Axe.scoreCollider == collider)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        ActiveGameMode._ScoreAxe();
     }
 
     public void _AxeTaken()
     {
-        Networking.SetOwner(Networking.LocalPlayer, gameObject);
-        ActiveGameMode.SendCustomEvent("_AxeTaken");
+        SetOwner(Networking.LocalPlayer);
+        ActiveGameMode._AxeTaken();
 
+        InProgress = true;
+        LockBoard(40);
+        OwnerUpdateState();
+    }
+
+    public void _TakeBoardLock()
+    {
         InProgress = true;
         LockBoard(40);
         OwnerUpdateState();
@@ -136,7 +129,7 @@ public class AxeThrowingGame : UdonSharpBehaviour
         {
             if (lockoutTime < Time.time)
             {
-                Debug.Log("Resetting lock nerf after timeout.");
+                //Debug.Log("Resetting lock nerf after timeout.");
                 lockNerf = 1;
             }
         }
@@ -147,45 +140,58 @@ public class AxeThrowingGame : UdonSharpBehaviour
             lockNerf = lockNerf*2;
         }
 
-        Debug.Log($"Locking board at nerf level {lockNerf} {Networking.GetUniqueName(gameObject)}");
+        //Debug.Log($"Locking board at nerf level {lockNerf} {Networking.GetUniqueName(gameObject)}");
         lockDecayTime = Networking.GetNetworkDateTime().AddSeconds(seconds / lockNerf).Ticks;
     }
 
-    public void ChangePlayer(string playerName)
+    public void _ChangePlayer(int playerId)
     {
-        VRCPlayerApi[] players = new VRCPlayerApi[VRCPlayerApi.GetPlayerCount()];
-        VRCPlayerApi.GetPlayers(players);
-
-        foreach (var player in players)
+        var player = VRCPlayerApi.GetPlayerById(playerId);
+        if (Utilities.IsValid(player))
         {
-            if (player.IsValid() && player.displayName == playerName)
-            {
-                SetOwner(player);
-            }
+            SetOwner(player);
         }
     }
 
     public void _ConsumeAxe()
     {
-        ActiveGameMode.SendCustomEvent("_ConsumeAxe");
-        ActiveGameMode.SendCustomEventDelayedSeconds("_NextRound", 2.0f);
+        ActiveGameMode._ConsumeAxe();
+        startingNextRound = true;
+        SendCustomEventDelayedSeconds(nameof(_NextRound), 2.0f);
+    }
+
+    public void _NextRound()
+    {
+        if (!startingNextRound)
+            return;
+
+        startingNextRound = false;
+
+        if (!Axe.stuck)
+        {
+            Axe._PlayNostickHelp();
+        }
+
+        ActiveGameMode._NextRound();
     }
 
     public void _Initialize()
     {
         if (Networking.IsMaster && Networking.IsOwner(gameObject))
         {
-            Debug.Log("Initializing game");
+            debugLog._Info("Initializing game");
             _Reset();
-            Debug.Log("Game initialized.");
+            debugLog._Info("Game initialized.");
         }
     }
 
     public void _Reset()
     {
         Debug.Log("Resetting game");
-        SetDefaults();
-        ActiveGameMode.SendCustomEvent("_Reset");
+        startingNextRound = false;
+        lockDecayTime = Networking.GetNetworkDateTime().Ticks;
+        InProgress = false;
+        ActiveGameMode._Reset();
         OwnerUpdateState();
         Axe._Reset();
     }
@@ -234,13 +240,19 @@ public class AxeThrowingGame : UdonSharpBehaviour
 
     private void SetOwner(VRCPlayerApi player)
     {
-        Networking.SetOwner(player, gameObject);
-        Networking.SetOwner(player, Axe.gameObject);
-        Networking.SetOwner(player, AxeHolster.gameObject);
+        if (!Networking.IsOwner(gameObject))
+            Networking.SetOwner(player, gameObject);
+
+        if (!Networking.IsOwner(Axe.gameObject))
+            Networking.SetOwner(player, Axe.gameObject);
+        
+        if (!Networking.IsOwner(AxeHolster.gameObject))
+            Networking.SetOwner(player, AxeHolster.gameObject);
 
         foreach (var gameMode in GameModes)
         {
-            Networking.SetOwner(player, gameMode.gameObject);
+            if (!Networking.IsOwner(gameMode.gameObject))
+                Networking.SetOwner(player, gameMode.gameObject);
         }
     }
 
@@ -263,15 +275,17 @@ public class AxeThrowingGame : UdonSharpBehaviour
         foreach (var gameMode in GameModes)
         {
             if (gameMode != ActiveGameMode)
-                gameMode.SendCustomEvent("_Hide");
+                gameMode._Hide();
             else
-                gameMode.SendCustomEvent("_Show");
+                gameMode._Show();
         }
     }
 
     public void _PlayerInZoneSnailUpdate()
     {
         DisplayLockStatus();
+        DisplayHelptextButtonStatus();
+        DisplayDebugStatus();
     }
 
     public void SetTitle(string title)
@@ -291,7 +305,7 @@ public class AxeThrowingGame : UdonSharpBehaviour
 
     private bool ActiveGameModeHasOpening()
     {
-        return (bool)ActiveGameMode.GetProgramVariable("PlayerOpening");
+        return ActiveGameMode.PlayerOpening;
     }
 
     public void DisplayLockStatus()
@@ -309,5 +323,52 @@ public class AxeThrowingGame : UdonSharpBehaviour
 
         Axe.SetOwnerLocked(locked);
         AxeHolster.SetOwnerLocked(locked);
+    }
+
+    public void DisplayHelptextButtonStatus()
+    {
+        var disabled = gameText._IsHelpTextDisabled();
+        helpTextDisableBtn.SetActive(!disabled);
+        helpTextEnableBtn.SetActive(disabled);
+    }
+
+    public void DisplayDebugStatus()
+    {
+        var enabled = IsDebugEnabled();
+        if (debugLog != null)
+        {
+            debugLog.gameObject.SetActive(enabled);
+        }
+    }
+
+    public static bool IsDebugEnabled()
+    {
+#if UNITY_EDITOR
+        return true;
+#endif
+
+        var debugEnabledStr = Networking.LocalPlayer.GetPlayerTag(TAG_ENABLE_DEBUG_SETTING);
+        if (debugEnabledStr == "true")
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    public static void SetDebugEnabled(bool value)
+    {
+        Networking.LocalPlayer.SetPlayerTag(TAG_ENABLE_DEBUG_SETTING, value.ToString().ToLower());
+    }
+
+    public void _ForceTakeBoard()
+    {
+        // set owner on all things and reset everything completely upon receipt
+        // this isn't technically necessary but it helps prevent confusion if players
+        // are moving the axe holster around
+
+        _Reset();
+        AxeHolster._Reset();
+        _TakeBoardLock();
     }
 }

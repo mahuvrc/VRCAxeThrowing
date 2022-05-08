@@ -9,8 +9,7 @@ Material:
   m_PrefabAsset: {fileID: 0}
   m_Name: beeraxecup
   m_Shader: {fileID: 4800000, guid: 508ae22e9bc9b6f468e5426838a43a96, type: 3}
-  m_ShaderKeywords: BAKERY_LMSPEC BAKERY_SH BAKERY_SHNONLINEAR _ALPHAPREMULTIPLY_ON
-    _GLOSSYREFLECTIONS_OFF _SPECULARHIGHLIGHTS_OFF
+  m_ShaderKeywords: _ALPHAPREMULTIPLY_ON _GLOSSYREFLECTIONS_OFF _SPECULARHIGHLIGHTS_OFF
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0

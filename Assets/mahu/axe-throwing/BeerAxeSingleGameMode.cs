@@ -8,26 +8,15 @@ using VRC.SDKBase;
 using VRC.Udon;
 
 [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
-public class BeerAxeSingleGameMode : UdonSharpBehaviour
+public class BeerAxeSingleGameMode : AxeThrowingGameMode
 {
-    // Set by parent
-    [NonSerialized]
-    public AxeThrowingGame Game;
-
-    // Part of standard GameMode
-    public string DisplayName = "Beer Axe (1 player per board)";
+    public override string DisplayName { get { return "Beer Axe (1 player per board)"; } }
 
     public TextMeshPro WinText;
 
     public SphereCollider[] Player1CupColliders;
 
     public GameObject[] Player1CupIndicator;
-
-    public GameObject[] ChildObjects;
-
-    // Part of standard GameMode
-    [UdonSynced]
-    public bool PlayerOpening;
 
     [UdonSynced]
     public string Player1Name;
@@ -46,38 +35,20 @@ public class BeerAxeSingleGameMode : UdonSharpBehaviour
         }
     }
 
-    // Part of standard GameMode
-    public void _Show()
-    {
-        foreach (var item in ChildObjects)
-        {
-            item.SetActive(true);
-        }
-    }
-
-    // Part of standard GameMode
-    public void _Hide()
-    {
-        foreach (var item in ChildObjects)
-        {
-            item.SetActive(false);
-        }
-    }
-
-    // Part of standard GameMode
-    public void _SetDefaults()
+    public override void _Reset()
     {
         Player1Name = null;
         PlayerOpening = true;
 
         Player1CupStatus = 0;
+        OwnerUpdateState();
     }
 
-    public void _ScoreAxe()
+    public override void _ScoreAxe()
     {
         for (int i = 0; i < Player1CupColliders.Length; i++)
         {
-            if (Game.IsAxeInSphereScoreZone(Player1CupColliders[i])
+            if (IsAxeInSphereScoreZone(Player1CupColliders[i])
                 && !IsCupDisabled(Player1CupStatus, i))
             {
                 Player1CupStatus = DisableCup(Player1CupStatus, i);
@@ -98,35 +69,25 @@ public class BeerAxeSingleGameMode : UdonSharpBehaviour
         return playerCuprepr | (1 << i);
     }
 
-    // Part of standard GameMode
-    public void _ConsumeAxe()
+    public override void _ConsumeAxe()
     {
         OwnerUpdateState();
         PlayerOpening = false;
         Player1Name = Networking.LocalPlayer.displayName;
     }
 
-    // Part of standard GameMode
-    public void _AxeTaken()
+    public override void _AxeTaken()
     {
         OwnerUpdateState();
     }
 
-    // Part of standard GameMode
-    public void _NextRound()
+    public override void _NextRound()
     {
         if (Player1CupStatus < 0b111111)
         {
             OwnerUpdateState();
-            Game.Axe._Reset();
+            game.Axe._Reset();
         }
-    }
-
-    // Part of standard GameMode
-    public void _Reset()
-    {
-        _SetDefaults();
-        OwnerUpdateState();
     }
 
     private void OwnerUpdateState()
@@ -142,10 +103,15 @@ public class BeerAxeSingleGameMode : UdonSharpBehaviour
 
     private void DisplayGameState()
     {
+        if (!IsActiveGamemode())
+            return;
+
         var player1Display = (string.IsNullOrWhiteSpace(Player1Name) ? "(unoccupied)" : Player1Name);
 
-        Game.SetTitle(string.IsNullOrWhiteSpace(Player1Name) ? "PLAY BEER AXE" : Player1Name);
-        Game.SetMenuTitle($"Beer Axe! {player1Display}");
+
+        game.SetTitle(string.IsNullOrWhiteSpace(Player1Name) ? "PLAY BEER AXE" : Player1Name);
+        game.SetMenuTitle($"Beer Axe! {player1Display}");
+
 
         var player1cupremaining = 6;
 
@@ -163,10 +129,11 @@ public class BeerAxeSingleGameMode : UdonSharpBehaviour
         }
 
         WinText.text = player1cupremaining <= 0 ? "YOU WIN" : "";
-        Game.SetMenuStatusText(
+
+
+        game.SetMenuStatusText(
             "Playing BEER AXE!.\n" +
             $"Opponent has {player1cupremaining} cups remaining\n");
-
 
     }
 }
