@@ -1,6 +1,6 @@
 # VRChat Axe Throwing Game v2.1.1
 
-> :warning: **Version 2.x This prefab uses U# v1.0.0b12**: You can get this from Merlin's discord. The upgrade from previous versions of U# to U# 1.0 is automated but is NOT production ready as of the time of this release. Usually, all of your prefabs will break if you do this.
+> **Version 2.x This prefab uses U# v1.0+**: You can get this from the VRC creator assistant.
 
 This is the axe throwing game board behind my axe throwing map in VRChat. It is compatible with PC and Quest.
 
