@@ -1,15 +1,17 @@
-﻿
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon;
 
-public class ResetButton : UdonSharpBehaviour
+namespace mahu.AxeThrowing
 {
-    public AxeThrowingGame game;
-
-    public override void Interact()
+    public class ResetButton : UdonSharpBehaviour
     {
-        game._Reset();
+        public AxeThrowingGame game;
+
+        public override void Interact()
+        {
+            game._Reset();
+        }
     }
 }

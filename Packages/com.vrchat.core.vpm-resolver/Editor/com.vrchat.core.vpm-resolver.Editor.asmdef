@@ -1,9 +1,6 @@
 {
-    "name": "VRC.Udon.Editor.UPMImporter",
-    "references": [
-        "VRC.Udon.Editor"
-    ],
-    "optionalUnityReferences": [],
+    "name": "com.vrchat.core.vpm-resolver.Editor",
+    "references": [],
     "includePlatforms": [
         "Editor"
     ],
@@ -12,5 +9,7 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": []
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

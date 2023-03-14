@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using TMPro;
 using UdonSharp;
 using UnityEngine;
@@ -7,133 +6,138 @@ using UnityEngine.UI;
 using VRC.SDKBase;
 using VRC.Udon;
 
-[UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
-public class BeerAxeSingleGameMode : AxeThrowingGameMode
+namespace mahu.AxeThrowing
 {
-    public override string DisplayName { get { return "Beer Axe (1 player per board)"; } }
-
-    public TextMeshPro WinText;
-
-    public SphereCollider[] Player1CupColliders;
-
-    public GameObject[] Player1CupIndicator;
-
-    [UdonSynced]
-    public string Player1Name;
-
-    [UdonSynced]
-    int Player1CupStatus;
-
-    public void Start()
+    [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
+    public class BeerAxeSingleGameMode : AxeThrowingGameMode
     {
-        if (Player1CupColliders.Length != 6
-            || Player1CupIndicator.Length != 6)
+        public override string DisplayName { get { return "Beer Axe (1 player per board)"; } }
+
+        private const int CUPS_ALL_HIT = 0b111111;
+
+        public TextMeshPro WinText;
+
+        public SphereCollider[] Player1CupColliders;
+
+        public GameObject[] Player1CupIndicator;
+
+        [UdonSynced]
+        public string Player1Name;
+
+        [UdonSynced]
+        int Player1CupStatus;
+
+        public void Start()
         {
-            Debug.LogError("Must have 6 score zones and indicators per player");
-            var behavior = (UdonBehaviour)this.GetComponent(typeof(UdonBehaviour));
-            behavior.enabled = false;
-        }
-    }
-
-    public override void _Reset()
-    {
-        Player1Name = null;
-        PlayerOpening = true;
-
-        Player1CupStatus = 0;
-        OwnerUpdateState();
-    }
-
-    public override void _ScoreAxe()
-    {
-        for (int i = 0; i < Player1CupColliders.Length; i++)
-        {
-            if (IsAxeInSphereScoreZone(Player1CupColliders[i])
-                && !IsCupDisabled(Player1CupStatus, i))
+            if (Player1CupColliders.Length != 6
+                || Player1CupIndicator.Length != 6)
             {
-                Player1CupStatus = DisableCup(Player1CupStatus, i);
-                break;
+                Debug.LogError("Must have 6 score zones and indicators per player");
+                var behavior = (UdonBehaviour)GetComponent(typeof(UdonBehaviour));
+                behavior.enabled = false;
             }
         }
 
-        OwnerUpdateState();
-    }
+        public override void _Reset()
+        {
+            Player1Name = null;
+            PlayerOpening = true;
 
-    private bool IsCupDisabled(int playerCuprepr, int i)
-    {
-        return (playerCuprepr & (1 << i)) > 0;
-    }
+            Player1CupStatus = 0;
+            OwnerUpdateState();
+        }
 
-    private int DisableCup(int playerCuprepr, int i)
-    {
-        return playerCuprepr | (1 << i);
-    }
+        public override void _ScoreAxe()
+        {
+            for (int i = 0; i < Player1CupColliders.Length; i++)
+            {
+                if (IsAxeInSphereScoreZone(Player1CupColliders[i])
+                    && !IsCupHit(Player1CupStatus, i))
+                {
+                    Player1CupStatus = FlagCupAsHit(Player1CupStatus, i);
+                    break;
+                }
+            }
 
-    public override void _ConsumeAxe()
-    {
-        OwnerUpdateState();
-        PlayerOpening = false;
-        Player1Name = Networking.LocalPlayer.displayName;
-    }
+            OwnerUpdateState();
+        }
 
-    public override void _AxeTaken()
-    {
-        OwnerUpdateState();
-    }
+        private bool IsCupHit(int cupFlags, int cupIndex)
+        {
+            return (cupFlags & 1 << cupIndex) > 0;
+        }
 
-    public override void _NextRound()
-    {
-        if (Player1CupStatus < 0b111111)
+        private int FlagCupAsHit(int cupFlags, int cupIndex)
+        {
+            return cupFlags | 1 << cupIndex;
+        }
+
+        public override void _ConsumeAxe()
         {
             OwnerUpdateState();
-            game.Axe._Reset();
+            PlayerOpening = false;
+            Player1Name = Networking.LocalPlayer.displayName;
         }
-    }
 
-    private void OwnerUpdateState()
-    {
-        RequestSerialization();
-        DisplayGameState();
-    }
-
-    public override void OnDeserialization()
-    {
-        DisplayGameState();
-    }
-
-    private void DisplayGameState()
-    {
-        if (!IsActiveGamemode())
-            return;
-
-        var player1Display = (string.IsNullOrWhiteSpace(Player1Name) ? "(unoccupied)" : Player1Name);
-
-
-        game.SetTitle(string.IsNullOrWhiteSpace(Player1Name) ? "PLAY BEER AXE" : Player1Name);
-        game.SetMenuTitle($"Beer Axe! {player1Display}");
-
-
-        var player1cupremaining = 6;
-
-        for (int i = 0; i < 6; i++)
+        public override void _AxeTaken()
         {
-            if (IsCupDisabled(Player1CupStatus, i))
+            OwnerUpdateState();
+        }
+
+        public override void _NextRound()
+        {
+            if (Player1CupStatus < CUPS_ALL_HIT)
             {
-                Player1CupIndicator[i].SetActive(true);
-                player1cupremaining--;
-            }
-            else
-            {
-                Player1CupIndicator[i].SetActive(false);
+                OwnerUpdateState();
+                game.Axe._Reset();
             }
         }
 
-        WinText.text = player1cupremaining <= 0 ? "YOU WIN" : "";
+        private void OwnerUpdateState()
+        {
+            RequestSerialization();
+            DisplayGameState();
+        }
+
+        public override void OnDeserialization()
+        {
+            DisplayGameState();
+        }
+
+        private void DisplayGameState()
+        {
+            if (!IsActiveGamemode())
+                return;
+
+            var player1Display = string.IsNullOrWhiteSpace(Player1Name) ? "(unoccupied)" : Player1Name;
 
 
-        game.SetMenuStatusText(
-            "Playing BEER AXE!.\n" +
-            $"Opponent has {player1cupremaining} cups remaining\n");
+            game.SetTitle(string.IsNullOrWhiteSpace(Player1Name) ? "PLAY BEER AXE" : Player1Name);
+            game.SetMenuTitle($"Beer Axe! {player1Display}");
 
+
+            var player1cupremaining = 6;
+
+            for (int i = 0; i < 6; i++)
+            {
+                if (IsCupHit(Player1CupStatus, i))
+                {
+                    Player1CupIndicator[i].SetActive(true);
+                    player1cupremaining--;
+                }
+                else
+                {
+                    Player1CupIndicator[i].SetActive(false);
+                }
+            }
+
+            WinText.text = player1cupremaining <= 0 ? "YOU WIN" : "";
+
+
+            game.SetMenuStatusText(
+                "Playing BEER AXE!.\n" +
+                $"Opponent has {player1cupremaining} cups remaining\n");
+
+        }
     }
 }

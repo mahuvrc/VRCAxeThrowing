@@ -1,24 +1,18 @@
-# VRChat Axe Throwing Game v2.1.1
-
-> **Version 2.x This prefab uses U# v1.0+**: You can get this from the VRC creator assistant.
+# VRChat Axe Throwing Game v2.2.0
 
 This is the axe throwing game board behind my axe throwing map in VRChat. It is compatible with PC and Quest.
 
-There are multiple game modes and the board supports a generic style of game rules. Game modes can allow multiple players per board. Included are these game modes:
+There are multiple game modes and the board supports a generic style of game rules. Included are these game modes:
 
 - Standard Board (World axe throwing league rules)
-- Beer Axe 2 player board
-- Beer Axe 1 player board
+- Beer Axe 
 
 # Usage
 
-> Version 2 is a significant improvement over version 1. Use it if you can. However, if you cannot or would prefer not to upgrade your world to U# 1.0 yet, use version 1 of the release. If you're upgrading from version 1 to version 2 you will want to delete the old mahu/axe-throwing folder from your assets folder before upgrading.
->
-> If you haven't already imported the latest VRChat SDK and either UdonSharp 1.0 beta for axe or 0.20.3 you'll need to import those first before importing the axe throwing package.
-
-1. Download the unity package from the [releases section of this repository](https://github.com/mahuvrc/VRCAxeThrowing/releases).
+1. Install the latest VRC World SDK and *UdonSharp* from VCC. (You will need to enable curated packages in the VCC dropdown to find UdonSharp)
+1. Download this unity package from the [releases section of this repository](https://github.com/mahuvrc/VRCAxeThrowing/releases).
 2. Import the package
-3. navigate to the mahu/axe-throwing folder in the project window
+3. Navigate to the mahu/axe-throwing folder in the project window
 4. Drag and drop the `Axe Throwing Game.prefab` prefab into your scene
 5. Don't move any of the components of the prefab into position individually. Instead, move the whole prefab into position as a single unit.
 

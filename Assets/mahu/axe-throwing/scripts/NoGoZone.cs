@@ -1,30 +1,30 @@
-﻿
-using System;
+﻿using System;
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon;
 
-public class NoGoZone : UdonSharpBehaviour
+namespace mahu.AxeThrowing
 {
-    [NonSerialized]
-    public bool LocalPlayerInZone;
-
-    public override void OnPlayerTriggerEnter(VRCPlayerApi player)
+    public class NoGoZone : UdonSharpBehaviour
     {
-        if (player.isLocal)
+        [NonSerialized]
+        public bool LocalPlayerInZone;
+
+        public override void OnPlayerTriggerEnter(VRCPlayerApi player)
         {
-            Debug.Log("Player Enters no go zone.");
-            LocalPlayerInZone = true;
+            if (player.isLocal)
+            {
+                LocalPlayerInZone = true;
+            }
         }
-    }
 
-    public override void OnPlayerTriggerExit(VRCPlayerApi player)
-    {
-        if (player.isLocal)
+        public override void OnPlayerTriggerExit(VRCPlayerApi player)
         {
-            Debug.Log("Player exits no go zone.");
-            LocalPlayerInZone = false;
+            if (player.isLocal)
+            {
+                LocalPlayerInZone = false;
+            }
         }
     }
 }

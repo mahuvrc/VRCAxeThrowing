@@ -1,40 +1,42 @@
-﻿
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon;
 
-public class PlayerPresenceTrigger : UdonSharpBehaviour
+namespace mahu.AxeThrowing
 {
-    public AxeThrowingGame Game;
-    public Animator UIAnimator;
-
-    private float snailUpdateTime;
-    
-    public override void OnPlayerTriggerEnter(VRCPlayerApi player)
+    public class PlayerPresenceTrigger : UdonSharpBehaviour
     {
-        if (player.isLocal)
-        {
-            UIAnimator.SetBool("visible", true);
-        }
-    }
+        public AxeThrowingGame Game;
+        public Animator UIAnimator;
 
-    public override void OnPlayerTriggerExit(VRCPlayerApi player)
-    {
-        if (player.isLocal)
-        {
-            UIAnimator.SetBool("visible", false);
-        }
-    }
+        private float snailUpdateTime;
 
-    public override void OnPlayerTriggerStay(VRCPlayerApi player)
-    {
-        if (player.isLocal)
+        public override void OnPlayerTriggerEnter(VRCPlayerApi player)
         {
-            if (Time.time > snailUpdateTime)
+            if (player.isLocal)
             {
-                snailUpdateTime = Time.time + Random.Range(.5f, 1f);
-                Game._PlayerInZoneSnailUpdate();
+                UIAnimator.SetBool("visible", true);
+            }
+        }
+
+        public override void OnPlayerTriggerExit(VRCPlayerApi player)
+        {
+            if (player.isLocal)
+            {
+                UIAnimator.SetBool("visible", false);
+            }
+        }
+
+        public override void OnPlayerTriggerStay(VRCPlayerApi player)
+        {
+            if (player.isLocal)
+            {
+                if (Time.time > snailUpdateTime)
+                {
+                    snailUpdateTime = Time.time + Random.Range(.5f, 1f);
+                    Game._PlayerInZoneSnailUpdate();
+                }
             }
         }
     }

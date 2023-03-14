@@ -21,7 +21,7 @@ MonoBehaviour:
   compiledVersion: 2
   behaviourSyncMode: 4
   hasInteractEvent: 0
-  scriptID: 8451997173801342293
+  scriptID: -6856378156510820363
   serializationData:
     SerializedFormat: 2
     SerializedBytes: 
@@ -224,7 +224,7 @@ MonoBehaviour:
       Data: 12|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: NoGoZone, Assembly-CSharp
+      Data: mahu.AxeThrowing.NoGoZone, Assembly-CSharp
     - Name: 
       Entry: 8
       Data: 
@@ -638,7 +638,7 @@ MonoBehaviour:
       Data: 33|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: ThrowingAxe, Assembly-CSharp
+      Data: mahu.AxeThrowing.ThrowingAxe, Assembly-CSharp
     - Name: 
       Entry: 8
       Data: 
@@ -692,7 +692,7 @@ MonoBehaviour:
       Data: 36|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: AxeSpawner, Assembly-CSharp
+      Data: mahu.AxeThrowing.AxeSpawner, Assembly-CSharp
     - Name: 
       Entry: 8
       Data: 
@@ -746,7 +746,7 @@ MonoBehaviour:
       Data: 39|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: AnimatedGameText, Assembly-CSharp
+      Data: mahu.AxeThrowing.AnimatedGameText, Assembly-CSharp
     - Name: 
       Entry: 8
       Data: 
@@ -896,7 +896,7 @@ MonoBehaviour:
       Data: 46|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: AxeThrowingDebugLog, Assembly-CSharp
+      Data: mahu.AxeThrowing.AxeThrowingDebugLog, Assembly-CSharp
     - Name: 
       Entry: 8
       Data: 
@@ -1004,7 +1004,7 @@ MonoBehaviour:
       Data: 52|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: AxeThrowingGameMode[], Assembly-CSharp
+      Data: mahu.AxeThrowing.AxeThrowingGameMode[], Assembly-CSharp
     - Name: 
       Entry: 8
       Data: 
@@ -1064,7 +1064,7 @@ MonoBehaviour:
       Data: 56|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: AxeThrowingGameMode, Assembly-CSharp
+      Data: mahu.AxeThrowing.AxeThrowingGameMode, Assembly-CSharp
     - Name: 
       Entry: 8
       Data: 

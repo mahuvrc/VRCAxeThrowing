@@ -14,11 +14,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mipmapLightmaps: 0
   format8bit: 0
+  formatHDR: 0
+  lightmapCompression: 0
+  maxAssetMip: 100
+  dirHighQuality: 1
   texelPaddingForDefaultAtlasPacker: 3
-  texelPaddingForXatlasAtlasPacker: 1
+  texelPaddingForXatlasAtlasPacker: 2
   alphaMetaPassResolutionMultiplier: 2
   volumeRenderMode: 1000
   deletePreviousLightmapsBeforeBake: 0
   logLevel: 3
-  alternativeScaleInLightmap: 0
+  alternativeScaleInLightmap: 1
+  alignToTextureBlocksWithXatlas: 1
   generateSmoothPos: 1
+  perTriangleSmoothPos: 1
+  takeReceiveGIIntoAccount: 1
+  removeRinging: 0

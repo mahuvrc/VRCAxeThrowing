@@ -21,7 +21,7 @@ MonoBehaviour:
   compiledVersion: 2
   behaviourSyncMode: 4
   hasInteractEvent: 0
-  scriptID: 8846284026640397404
+  scriptID: 7809674247133572793
   serializationData:
     SerializedFormat: 2
     SerializedBytes: 
@@ -62,7 +62,7 @@ MonoBehaviour:
       Data: 3|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: AxeThrowingGame, Assembly-CSharp
+      Data: mahu.AxeThrowing.AxeThrowingGame, Assembly-CSharp
     - Name: 
       Entry: 8
       Data: 
@@ -296,7 +296,7 @@ MonoBehaviour:
       Data: 18|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: AnimatedGameText, Assembly-CSharp
+      Data: mahu.AxeThrowing.AnimatedGameText, Assembly-CSharp
     - Name: 
       Entry: 8
       Data: 
@@ -608,7 +608,7 @@ MonoBehaviour:
       Data: 34|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: ScoreCallback, Assembly-CSharp
+      Data: mahu.AxeThrowing.ScoreCallback, Assembly-CSharp
     - Name: 
       Entry: 8
       Data: 

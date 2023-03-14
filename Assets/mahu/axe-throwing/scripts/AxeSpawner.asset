@@ -21,7 +21,7 @@ MonoBehaviour:
   compiledVersion: 2
   behaviourSyncMode: 4
   hasInteractEvent: 0
-  scriptID: -7265345860490394551
+  scriptID: 1333505954213130561
   serializationData:
     SerializedFormat: 2
     SerializedBytes: 
@@ -230,7 +230,7 @@ MonoBehaviour:
       Data: 13|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: AxeThrowingGame, Assembly-CSharp
+      Data: mahu.AxeThrowing.AxeThrowingGame, Assembly-CSharp
     - Name: 
       Entry: 8
       Data: 
